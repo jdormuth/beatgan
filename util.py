@@ -3,6 +3,7 @@ import pretty_midi
 import librosa
 import os
 import fnmatch
+import midi2pianoroll
 
 def write_piano_roll_to_midi(piano_roll, filename, program_num=0, is_drum=False, velocity=100, tempo=120.0, beat_resolution=24):
 
@@ -24,11 +25,11 @@ def set_piano_roll_to_instrument(piano_roll, instrument, velocity=100, tempo=120
     # Create piano_roll_search that captures note onsets and offsets
     piano_roll = piano_roll.reshape((piano_roll.shape[0] * piano_roll.shape[1], piano_roll.shape[2]))
     
-    piano_roll_diff = np.concatenate((np.zeros((1,84),dtype=int), piano_roll, np.zeros((1,84),dtype=int)))  
+    piano_roll_diff = np.concatenate((np.zeros((1,10),dtype=int), piano_roll, np.zeros((1,10),dtype=int)))  
     piano_roll_search = np.diff(piano_roll_diff.astype(int), axis=0)
 
     # Iterate through all possible(128) pitches
-    for note_num in range(84):
+    for note_num in range(10):
         # Search for notes
         start_idx = (piano_roll_search[:,note_num] > 0).nonzero()
         start_time = tpp*(start_idx[0].astype(float))
@@ -53,3 +54,30 @@ def load_midi(filepath):
             except:
                 midi_dict[root] = root+'/'+filename
     return midi_dict
+
+def get_midi(filepath):
+    numpy_directory = './numpy_samples'
+    if not os.path.exists(numpy_directory):
+        os.makedirs(numpy_directory)
+    
+    for root, dirs, files in os.walk(filepath):
+        x = np.array([np.array(midi2pianoroll.midi_to_pianorolls(root+"/"+file)[0][0]) for file in files])
+        maximum = 0
+        minimum = 1000
+        for i in range(x.shape[0]):
+            
+            x[i] = x[i][:96]
+            for j in range(x[i].shape[0]):
+                for k in range(x[i][j].shape[0]):
+                    if(x[i][j][k] > 0):
+                        if(k > maximum):
+                            maximum = k
+                        if(k < minimum):
+                            minimum = k
+        x_new = np.concatenate(x, axis=0)
+        
+        x_final = np.reshape(x_new,(-1,96,128))
+        np.save(numpy_directory+"/"+"x_beats",x_final)
+        
+#area to run test scripts for above functions
+get_midi('./jacob_midis')
